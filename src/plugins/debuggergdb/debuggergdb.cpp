@@ -881,18 +881,21 @@ int DebuggerGDB::DoDebug(bool breakOnEntry)
     //       slow - parsing the info for 500 targets takes 2-3ms, which is fine.
     //       One easy optimization is to parse  the info only for the project and the target which
     //       is being debugged.
-    const RemoteDebuggingMap &remoteDebuggingMap = ParseRemoteDebuggingMap(*m_pProject);
     RemoteDebugging rd;
+    if(m_pProject)
+    {
+        const RemoteDebuggingMap &remoteDebuggingMap = ParseRemoteDebuggingMap(*m_pProject);
 
-    // project settings
-    RemoteDebuggingMap::const_iterator it = remoteDebuggingMap.find(nullptr);
-    if (it != remoteDebuggingMap.end())
-        rd = it->second;
+        // project settings
+        RemoteDebuggingMap::const_iterator it = remoteDebuggingMap.find(nullptr);
+        if (it != remoteDebuggingMap.end())
+            rd = it->second;
 
-    // target settings
-    it = remoteDebuggingMap.find(target);
-    if (it != remoteDebuggingMap.end())
-        rd.MergeWith(it->second);
+        // target settings
+        it = remoteDebuggingMap.find(target);
+        if (it != remoteDebuggingMap.end())
+            rd.MergeWith(it->second);
+    }
 
 //////////////////killerbot : most probably here : execute the shell commands (we could access the per target debugger settings)
     wxString oldLibPath; // keep old PATH/LD_LIBRARY_PATH contents

@@ -43,7 +43,8 @@ ProjectLoader::ProjectLoader(cbProject* project)
     m_Upgraded(false),
     m_OpenDirty(false),
     m_1_4_to_1_5_deftarget(-1),
-    m_IsPre_1_6(false)
+    m_IsPre_1_6(false),
+    m_last_basedir_splitpos(0)
 {
     //ctor
 }
@@ -73,6 +74,7 @@ bool ProjectLoader::Open(const wxString& filename, TiXmlElement** ppExtensions)
     pMsg->DebugLog(_T("Parsing project file..."));
     TiXmlElement* root;
     TiXmlElement* proj;
+    m_last_basedir_splitpos = 0;
 
     root = doc.FirstChildElement("CodeBlocks_project_file");
     if (!root)
@@ -1079,6 +1081,16 @@ void ProjectLoader::DoUnitOptions(const TiXmlElement* parentNode, ProjectFile* f
         //
         if (node->QueryIntAttribute("weight", &tempval) == TIXML_SUCCESS)
             file->weight = tempval;
+
+        if (node->QueryIntAttribute("basedirpos", &tempval) == TIXML_SUCCESS)
+        {
+            file->basePathSplitPos = tempval;
+            m_last_basedir_splitpos = tempval;
+        }
+        else
+        {
+            file->basePathSplitPos = m_last_basedir_splitpos;
+        }
         //
         if (node->Attribute("virtualFolder"))
             file->virtual_path = UnixFilename(cbC2U(node->Attribute("virtualFolder")));
@@ -1110,6 +1122,9 @@ void ProjectLoader::DoUnitOptions(const TiXmlElement* parentNode, ProjectFile* f
 
         node = node->NextSiblingElement("Option");
     }
+    //the file might does not have a "Option" child
+    if(file->basePathSplitPos <= 0)
+	    file->basePathSplitPos = m_last_basedir_splitpos;
 
     // pre 1.6 versions upgrade
     if (m_IsPre_1_6)
@@ -1229,6 +1244,7 @@ bool ProjectLoader::ExportTargetAsProject(const wxString& filename, const wxStri
 
 //    Compiler* compiler = CompilerFactory::GetCompiler(m_pProject->GetCompilerID());
 
+    m_last_basedir_splitpos = 0;
     rootnode->InsertEndChild(TiXmlElement("FileVersion"));
     rootnode->FirstChildElement("FileVersion")->SetAttribute("major", PROJECT_FILE_VERSION_MAJOR);
     rootnode->FirstChildElement("FileVersion")->SetAttribute("minor", PROJECT_FILE_VERSION_MINOR);
@@ -1579,6 +1595,11 @@ bool ProjectLoader::ExportTargetAsProject(const wxString& filename, const wxStri
 
         if (!f->virtual_path.IsEmpty())
             AddElement(unitnode, "Option", "virtualFolder", UnixFilename(f->virtual_path, wxPATH_UNIX));
+        if(f->basePathSplitPos != m_last_basedir_splitpos)
+        {
+            AddElement(unitnode, "Option", "basedirpos", f->basePathSplitPos);
+            m_last_basedir_splitpos = f->basePathSplitPos;
+        }
 
         // loop and save custom build commands
         for (pfCustomBuildMap::iterator it = f->customBuild.begin(); it != f->customBuild.end(); ++it)

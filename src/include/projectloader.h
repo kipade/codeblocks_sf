@@ -110,6 +110,7 @@ class DLLIMPORT ProjectLoader : public IBaseLoader
         int m_1_4_to_1_5_deftarget;
         bool m_IsPre_1_6;
         CompilerSubstitutes m_CompilerSubstitutes;
+        int m_last_basedir_splitpos;
 };
 
 #endif // PROJECTLOADER_H

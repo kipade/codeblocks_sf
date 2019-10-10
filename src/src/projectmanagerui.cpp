@@ -1297,9 +1297,61 @@ void ProjectManagerUI::OnAddFilesToProjectRecursively(wxCommandEvent& event)
         return;
     array = dlg.GetSelectedStrings();
 
+    wxString basedir = realpath(dir);
+    AdjustSplitbaseAndDealConflict(prj, basedir);
     // finally add the files
-    pm->AddMultipleFilesToProject(array, prj, targets);
+    pm->AddMultipleFilesToProject(array, prj, targets, basedir);
     RebuildTree();
+}
+
+void ProjectManagerUI::AdjustSplitbaseAndDealConflict(cbProject* project, wxString& basedir)
+{
+    int last_slash = basedir.Find(wxFileName::GetPathSeparator(), true);
+    int dirEnd = basedir.Length() - 1;
+    //去掉末尾的路径分隔符
+    while(last_slash == basedir.Length() - 1)
+    {
+        basedir[basedir.Length() - 1] = wxT('\0');
+        last_slash = basedir.Find(wxFileName::GetPathSeparator(), true);
+    }
+    wxString dirName;
+    if(last_slash < dirEnd)
+    {
+        dirName = basedir.SubString(last_slash + 1, dirEnd - last_slash);
+        wxString existedParentDir;
+        wxString conflictDir = FindConflictRootDir(project, basedir + wxFileName::GetPathSeparator(), existedParentDir); //找到一个冲突项
+        if(conflictDir.Length())//如果存在冲突项
+        {
+            dirEnd = last_slash;
+            int newSplitPos = CalcConfilctPathNewSplitPos(basedir.Left(basedir.Length() - dirName.Length()), conflictDir); //计算新目录与冲突目录的新的分界，返回新的拆分位置
+            UpdateProjectFilePathSplitPos(project, dirName, newSplitPos); //将存在目录名冲突的文件分界位置统统更新
+            //冲突项分隔位置前移多少，新目录基址亦应前移多少
+            dirEnd = basedir.Length() - dirName.Length() - (conflictDir.Length() - newSplitPos);
+	        dirEnd = basedir.find(wxFileName::GetPathSeparator(), dirEnd + 1);
+            basedir = basedir.Left(dirEnd);
+        }
+        else
+        {
+            wxFileName fn(basedir);
+            wxString basedirPath = basedir + wxFileName::GetPathSeparator(); //得到父目录
+            wxString prjDir = realpath(project->GetBasePath());
+            wxString baseDir = realpath(basedirPath);
+            if(existedParentDir.Length() > 0)
+            {//存在父目录
+                basedir = existedParentDir;//
+                if(basedir[basedir.Length() - 1] != wxFileName::GetPathSeparator())
+                {
+                    basedir.Append(wxFileName::GetPathSeparator());
+                }
+                return;
+            }
+            if(prjDir.Cmp(baseDir) == 0)
+            {//基础目录就是工程目录
+                basedir = basedirPath;
+                return;
+            }
+        }//end if conflictDir.Length
+    }
 }
 
 void ProjectManagerUI::OnAddFileToProject(wxCommandEvent& event)
@@ -1351,7 +1403,10 @@ void ProjectManagerUI::OnAddFileToProject(wxCommandEvent& event)
 
         wxArrayString array;
         dlg.GetPaths(array);
-        pm->AddMultipleFilesToProject(array, prj, targets);
+        wxFileName oneFile(array[0]);
+        wxString baseDir = realpath(oneFile.GetPath());
+        AdjustSplitbaseAndDealConflict(prj, baseDir);
+        pm->AddMultipleFilesToProject(array, prj, targets, baseDir);
         RebuildTree();
     }
 }
@@ -1864,7 +1919,8 @@ void ProjectManagerUI::OnGotoFile(cb_unused wxCommandEvent& event)
         for (FilesList::iterator it = prj->GetFilesList().begin(); it != prj->GetFilesList().end(); ++it)
         {
             ProjectFile *projectFile = *it;
-            uniqueAbsPathFiles.insert({projectFile->file.GetFullPath(), projectFile});
+            wxString realFilepath = realpath(projectFile->file.GetFullPath());
+            uniqueAbsPathFiles.insert({realFilepath.Right(realFilepath.Length() - projectFile->basePathSplitPos), projectFile});
         }
     }
 
@@ -2823,7 +2879,21 @@ wxTreeItemId ProjectAddTreeNode(cbProject* project, wxTreeCtrl* tree,  const wxS
             FileTreeData* ftd = new FileTreeData(*data);
             ftd->SetKind(folders_kind);
             if (folders_kind != FileTreeData::ftdkVirtualFolder)
-                ftd->SetFolder(project->GetCommonTopLevelPath() + GetRelativeFolderPath(tree, parent) + folder + wxFILE_SEP_PATH);
+            {
+                wxString folderPath = project->GetCommonTopLevelPath() + GetRelativeFolderPath(tree, parent) + folder + wxFILE_SEP_PATH;
+                if(!wxDirExists(folderPath))
+                {
+                    FileTreeData* parentFtd = (FileTreeData*)tree->GetItemData(parent);
+                    folderPath = parentFtd->GetFolder();
+                    if(folderPath.Length() <= 0)
+                    {
+                        ProjectFile* pf = data->GetProjectFile();
+                        folderPath = pf->file.GetFullPath().Left(pf->basePathSplitPos);
+                    }
+                    folderPath.Append(folder + wxFILE_SEP_PATH);
+                }
+                ftd->SetFolder(folderPath);
+            }
             else
                 ftd->SetFolder(GetRelativeFolderPath(tree, parent) + folder + wxFILE_SEP_PATH);
             ftd->SetProjectFile(nullptr);
@@ -3379,6 +3449,14 @@ void ProjectManagerUI::BuildProjectTree(cbProject* project, cbTreeCtrl* tree, co
         {
             nodetext = pf->file.GetFullName();
         }
+        else
+        {
+            if(pf->basePathSplitPos > 0)
+            {
+                nodetext = realpath(pf->file.GetFullPath());
+                nodetext = nodetext.Right(nodetext.Length() - pf->basePathSplitPos);
+            }
+        }
 
         // add file in the tree
         bool useFolders = (ptvs&ptvsUseFolders) || (folders_kind == FileTreeData::ftdkVirtualFolder);
@@ -3406,4 +3484,214 @@ void ProjectManagerUI::BuildProjectTree(cbProject* project, cbTreeCtrl* tree, co
 #ifdef fileload_measuring
     Manager::Get()->GetLogManager()->DebugLogError(F(_T("%s::%s:%d  took : %d ms"), cbC2U(__FILE__).c_str(),cbC2U(__PRETTY_FUNCTION__).c_str(), __LINE__, (int)sw.Time()));
 #endif
+}
+
+wxString ProjectManagerUI::FindConflictRootDir(cbProject* project, const wxString& baseDir, wxString& parentDir)
+{
+    wxFileName filename(baseDir + wxFileName::GetPathSeparator()); //保证最后一个是目录分隔符，否则最后一级目录会被当成文件来处理
+    if(!filename.IsOk())
+    {
+        return wxEmptyString;
+    }
+    wxTreeItemId prjRoot = project->GetProjectNode();
+    bool categorized = Manager::Get()->GetAppFrame()->GetMenuBar()->IsChecked(idMenuViewCategorize);//当前是否分类显示
+    wxTreeItemIdValue cookie;
+
+    wxArrayString dirs = filename.GetDirs();
+    const wxString& dirName = dirs.Last();
+
+    wxTreeItemId nextNode = m_pTree->GetFirstChild(prjRoot, cookie);
+    while(nextNode.IsOk())
+    {
+        //如果是分类显示，则需查验下一层结点
+        if(categorized)
+        {
+            wxTreeItemIdValue childCookie;
+            wxTreeItemId nextChild = m_pTree->GetFirstChild(nextNode, childCookie);
+            while(nextChild.IsOk())
+            {
+                wxString nodeText = m_pTree->GetItemText(nextChild);
+                wxString nodePath = GetNodeFullPath(nextChild);
+                if(baseDir.Find(nodePath) == 0)
+                {
+                    parentDir = nodePath.Left(nodePath.Length() - nodeText.Length() - 1);
+                    return wxEmptyString;
+                }
+
+                if(nodeText.CmpNoCase(dirName) == 0)
+                {
+                    //得到冲突，每次只可能有一个冲突
+                    return nodePath;
+                }
+                nextChild = m_pTree->GetNextChild(nextNode, childCookie);
+            }
+        }
+        else
+        {
+            wxString nodeText = m_pTree->GetItemText(nextNode);
+            wxString nodePath = GetNodeFullPath(nextNode);
+            if(baseDir.Find(nodePath) == 0)
+            {
+                parentDir = nodePath.Left(nodePath.Length() - nodeText.Length() - 1);
+                return wxEmptyString;
+            }
+            if(nodeText.CmpNoCase(dirName) == 0)
+            {
+                //得到冲突
+                return nodePath;
+            }
+
+        }
+        nextNode = m_pTree->GetNextChild(prjRoot, cookie);
+    }
+
+    return wxEmptyString;
+}
+
+int ProjectManagerUI::CalcConfilctPathNewSplitPos(const wxString& baseDir, const wxString& conflictDir)
+{
+    wxString path1 = baseDir;
+    wxString path2 = conflictDir;
+    int pos = path1.Length() - 1;
+
+    if(path1[path1.Length() - 1] != wxFileName::GetPathSeparator())
+    {
+        path1.Append(wxFileName::GetPathSeparator());
+    }
+    if(path2[path2.Length() - 1] != wxFileName::GetPathSeparator())
+    {
+        path2.Append(wxFileName::GetPathSeparator());
+    }
+
+    //从后往前查找第一个不相等
+    wxFileName dir1(path1);
+    wxFileName dir2(path2);
+    pos = path2.Length() - 1;
+    if(dir1.IsOk() && dir2.IsOk())
+    {
+        wxArrayString dirs1, dirs2;
+
+        dirs1 = dir1.GetDirs();
+        dirs2 = dir2.GetDirs();
+        while(dirs1.Count() > 0 && dirs2.Count() > 0)
+        {
+            wxString name = dirs2.Last();
+            pos -= (name.Length() + 1);
+            if(name.CmpNoCase(dirs1.Last()) != 0)
+            {
+                //路径名不同
+                break;
+            }
+            dirs1.pop_back();
+            dirs2.pop_back();
+        }
+    }
+    if(pos < 0)
+    {
+        pos = -1;
+    }
+    return pos;
+}
+
+wxString ProjectManagerUI::GetNodeFullPath(const wxTreeItemId& node) const
+{
+    FileTreeData* ftd = (FileTreeData*)m_pTree->GetItemData(node);
+    if(ftd != NULL)
+    {
+        return ftd->GetFolder();
+    }
+    return wxEmptyString;
+}
+
+wxString ProjectManagerUI::GetNodeBaseSplitPath(wxTreeItemId node)
+{
+    wxTreeItemId childNode = node;
+    wxTreeItemIdValue cookie;
+
+    while(childNode.IsOk() && m_pTree->GetChildrenCount(childNode) > 0)
+    {
+        childNode = m_pTree->GetFirstChild(childNode, cookie);
+    }
+    if(childNode.IsOk())
+    {
+        FileTreeData* ftd = (FileTreeData*)m_pTree->GetItemData(childNode);
+        if(ftd != NULL && ftd->GetKind() == FileTreeData::ftdkFile)
+        {
+            ProjectFile* pf = ftd->GetProjectFile();
+            return pf->file.GetFullPath().Left(pf->basePathSplitPos);
+        }
+    }
+    return wxEmptyString;
+}
+
+void ProjectManagerUI::UpdateProjectFilePathSplitPos(wxTreeItemId root, int newSplitPos)
+{
+    wxTreeItemId nextChild;
+    wxTreeItemIdValue cookie;
+
+    if(root.IsOk())
+    {
+        nextChild = m_pTree->GetFirstChild(root, cookie);
+        while(nextChild.IsOk())
+        {
+            UpdateProjectFilePathSplitPos(nextChild, newSplitPos);
+            nextChild = m_pTree->GetNextChild(root, cookie);
+        }
+
+        if(m_pTree->GetChildrenCount(root) == 0)
+        {
+            FileTreeData* ftd = (FileTreeData*)m_pTree->GetItemData(root);
+            if(ftd->GetKind() == FileTreeData::ftdkFile)
+            {
+                ProjectFile* pf = ftd->GetProjectFile();
+                pf->basePathSplitPos = newSplitPos;
+            }
+        }
+    }
+    return;
+}
+
+void ProjectManagerUI::UpdateProjectFilePathSplitPos(cbProject* project, const wxString& dirName, int newSplitPos)
+{
+    wxTreeItemId prjRoot = project->GetProjectNode();
+    bool categorized = Manager::Get()->GetAppFrame()->GetMenuBar()->IsChecked(idMenuViewCategorize);//当前是否分类显示
+    wxTreeItemIdValue cookie;
+
+    wxTreeItemId nextNode = m_pTree->GetFirstChild(prjRoot, cookie);
+    while(nextNode.IsOk())
+    {
+        //如果是分类显示，则需查验下一层结点
+        if(categorized)
+        {
+            wxTreeItemIdValue childCookie;
+            wxTreeItemId nextChild = m_pTree->GetFirstChild(nextNode, childCookie);
+            while(nextChild.IsOk())
+            {
+                wxString nodeText = m_pTree->GetItemText(nextChild);
+                if(nodeText.CmpNoCase(dirName) == 0)
+                {
+                    //得到冲突
+                    UpdateProjectFilePathSplitPos(nextChild, newSplitPos);
+                    //分类情况下，每种分类只有一个冲突项
+                    break;
+                }
+                nextChild = m_pTree->GetNextChild(nextNode, childCookie);
+            }//处理完一个分类，跳出内循环准备处理下一分类
+        }
+        else
+        {
+
+            wxString nodeText = m_pTree->GetItemText(nextNode);
+            if(nodeText.CmpNoCase(dirName) == 0)
+            {
+                //得到冲突
+                UpdateProjectFilePathSplitPos(nextNode, newSplitPos);
+                break;//不分类的情况下，只有一个冲突项
+            }
+
+        }
+        nextNode = m_pTree->GetNextChild(prjRoot, cookie);
+    }
+
+    return ;
 }

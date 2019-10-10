@@ -156,6 +156,9 @@ class DLLIMPORT ProjectFile
         /** Last splitter position. */
         int editorSplitPos; // layout info
 
+         /** Base folder split position. */
+        int basePathSplitPos; // base folder info
+
         /** The last known caret position in an editor for this file (left/top control if split). */
         int editorPos; // layout info
 

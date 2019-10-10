@@ -31,6 +31,7 @@ ProjectFile::ProjectFile(cbProject* prj) :
     editorSplit(0),
     editorSplitActive(1),
     editorSplitPos(0),
+    basePathSplitPos(0),
     editorPos(0),
     editorTopLine(0),
     editorZoom(0),

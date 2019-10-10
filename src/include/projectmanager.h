@@ -309,7 +309,7 @@ class DLLIMPORT ProjectManager : public Mgr<ProjectManager>, public wxEvtHandler
           * Also note than when this function returns, the targets array will contain
           * the user-selected build targets.
           */
-        int AddMultipleFilesToProject(const wxArrayString& filelist, cbProject* project, wxArrayInt& targets);
+        int AddMultipleFilesToProject(const wxArrayString& filelist, cbProject* project, wxArrayInt& targets, const wxString& basedir = wxEmptyString);
         /** Remove a file from a project.
           * @param pfile The file to remove from the project.
           * @param project The project to remove this file from. If NULL, the active project is used.
@@ -454,7 +454,7 @@ class DLLIMPORT ProjectManager : public Mgr<ProjectManager>, public wxEvtHandler
         ProjectManager();
         ~ProjectManager() override;
         void OnAppDoneStartup(CodeBlocksEvent& event);
-        int  DoAddFileToProject(const wxString& filename, cbProject* project, wxArrayInt& targets);
+        int  DoAddFileToProject(const wxString& filename, cbProject* project, wxArrayInt& targets, const wxString& basedir = wxEmptyString);
 
         cbProjectManagerUI *m_ui;
         cbProject*           m_pActiveProject;

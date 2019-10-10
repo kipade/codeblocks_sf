@@ -415,7 +415,7 @@ class DLLIMPORT cbProject : public CompileTargetBase
           * @param weight A value between zero and 100 (defaults to 50). Smaller weight, makes the file compile earlier than those with larger weight.
           * @return The newly added file or NULL if something went wrong.
           */
-        ProjectFile* AddFile(int targetIndex, const wxString& filename, bool compile = true, bool link = true, unsigned short int weight = 50);
+        ProjectFile* AddFile(int targetIndex, const wxString& filename, bool compile = true, bool link = true, unsigned short int weight = 50, const wxString& basedir = wxEmptyString);
 
         /** Remove a file from the project.
           * @param pf The pointer to ProjectFile.

@@ -1446,24 +1446,21 @@ void FindFiles(wxArrayString &resultFiles, wxTreeCtrl &tree, wxTreeItemId item)
 }
 } // namespace
 
-void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
+size_t ProjectManagerUI::RemoveFileFromProjectBySel(wxTreeItemId& sel, int eventId, bool confirm)
 {
-    ProjectManager* pm = Manager::Get()->GetProjectManager();
-    wxTreeItemId sel = GetTreeSelection();
-    if (!sel.IsOk())
-        return;
-
+    size_t done = 0;
     FileTreeData* ftd = (FileTreeData*)m_pTree->GetItemData(sel);
     if (!ftd)
-        return;
+        return done;
 
     cbProject* prj = ftd->GetProject();
     if (!prj)
-        return;
+        return done;
 
+    ProjectManager* pm = Manager::Get()->GetProjectManager();
     wxString oldpath = prj->GetCommonTopLevelPath();
 
-    if (event.GetId() == idMenuRemoveFile)
+    if (eventId == idMenuRemoveFile)
     {
         // remove multiple-files
         wxArrayString files;
@@ -1473,7 +1470,7 @@ void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
         {
             cbMessageBox(_("This project does not contain any files to remove."),
                          _("Error"), wxICON_WARNING);
-            return;
+            return done;
         }
         files.Sort();
         wxString msg;
@@ -1484,12 +1481,12 @@ void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
         {
             wxArrayInt indices = dlg.GetSelectedIndices();
             if (indices.GetCount() == 0)
-                return;
-            if (cbMessageBox(_("Are you sure you want to remove these files from the project?"),
+                return done;
+            if (confirm && cbMessageBox(_("Are you sure you want to remove these files from the project?"),
                              _("Confirmation"),
                              wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT) != wxID_YES)
             {
-                return;
+                return done;
             }
             prj->BeginRemoveFiles();
             // we iterate the array backwards, because if we iterate it normally,
@@ -1499,14 +1496,16 @@ void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
                 Manager::Get()->GetLogManager()->DebugLog(F(_T("Removing index %d"), indices[i]));
 
                 if ( ProjectFile* pf = prj->GetFileByFilename(files[indices[i]]) )
+                {
                     pm->RemoveFileFromProject(pf, prj);
+                    ++done;
+                }
             }
             prj->CalculateCommonTopLevelPath();
             prj->EndRemoveFiles();
-            RebuildTree();
         }
     }
-    else if (event.GetId() == idMenuRemoveFilePopup)
+    else if (eventId == idMenuRemoveFilePopup)
     {
         if ( ProjectFile* pf = ftd->GetProjectFile() )
         {
@@ -1517,17 +1516,17 @@ void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
             if (prj->GetCommonTopLevelPath() == oldpath)
                 m_pTree->Delete(sel);
             prj->EndRemoveFiles();
-            RebuildTree();
+            done = 1;
         }
     }
-    else if (event.GetId() == idMenuRemoveFolderFilesPopup)
+    else if (eventId == idMenuRemoveFolderFilesPopup)
     {
         // remove all files from a folder
-        if (cbMessageBox(_("Are you sure you want to recursively remove from the project all the files under this folder?"),
+        if (confirm && cbMessageBox(_("Are you sure you want to recursively remove from the project all the files under this folder?"),
                          _("Confirmation"),
                          wxICON_QUESTION | wxYES_NO | wxNO_DEFAULT) != wxID_YES)
         {
-            return;
+            return done;
         }
         bool is_virtual = ftd->GetKind() == FileTreeData::ftdkVirtualFolder;
         if (is_virtual || ftd->GetKind() == FileTreeData::ftdkFolder)
@@ -1541,8 +1540,31 @@ void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
             m_pTree->Delete(sel);
         else if (is_virtual)
             ProjectVirtualFolderDeleted(prj, m_pTree, sel);
-        RebuildTree();
+        done = 1;
     }
+    return done;
+}
+
+void ProjectManagerUI::OnRemoveFileFromProject(wxCommandEvent& event)
+{
+    wxArrayTreeItemIds selections;
+    size_t selsCount = m_pTree->GetSelections(selections);
+    int eventId = event.GetId();
+    size_t last_done = 0;
+    bool confirm = true;
+    for(size_t idx = 0; idx < selsCount; ++idx)
+    {
+        if(selections[idx].IsOk())
+        {
+            wxTreeItemId sel = selections[idx];
+            last_done += RemoveFileFromProjectBySel(sel, eventId, confirm);
+            if(confirm && (last_done > 0))
+            {
+                confirm = false;
+            }
+        }
+    }
+    RebuildTree();
 }
 
 void ProjectManagerUI::OnSaveProject(wxCommandEvent& WXUNUSED(event))

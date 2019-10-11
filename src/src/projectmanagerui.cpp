@@ -2014,9 +2014,9 @@ void ProjectManagerUI::OnGotoFile(cb_unused wxCommandEvent& event)
         wxString MakeDisplayName(ProjectFile &pf) const
         {
             if (m_ShowProject)
-                return pf.relativeFilename + wxT(" (") + pf.GetParentProject()->GetTitle() + wxT(")");
+                return pf.relativeToCommonTopLevelPath.substr((pf.basePathSplitPos > 0) ? (pf.basePathSplitPos - 1) : 0)+ wxT(" (") + pf.GetParentProject()->GetTitle() + wxT(")");
             else
-                return pf.relativeFilename;
+                return pf.relativeToCommonTopLevelPath.substr((pf.basePathSplitPos > 0) ? (pf.basePathSplitPos - 1) : 0);
         }
     private:
         const VProjectFiles &m_pfiles;

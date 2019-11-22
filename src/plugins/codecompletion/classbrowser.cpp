@@ -172,9 +172,9 @@ ClassBrowser::~ClassBrowser()
         // if we disable the cc-plugin, we otherwise come to an infinite wait in the threads Entry()-function
         m_ClassBrowserBuilderThread->RequestTermination();
         // awake the thread
-        m_ClassBrowserSemaphore.Post();
+        //m_ClassBrowserSemaphore.Post();
         // free the system-resources
-        m_ClassBrowserBuilderThread->Wait();
+        //m_ClassBrowserBuilderThread->Wait();
         // according to the wxWidgets-documentation the wxThread object itself has to be deleted explicitly,
         // to free the memory, if it is created on the heap, this is not done by Wait()
         delete m_ClassBrowserBuilderThread;
@@ -250,7 +250,8 @@ void ClassBrowser::UpdateClassBrowserView(bool checkHeaderSwap)
     if (!activeProject)
         CCLogger::Get()->DebugLog(wxT("ClassBrowser::UpdateClassBrowserView(): No active project available."));
 
-    ThreadedBuildTree(activeProject); // (Re-) create tree UI
+    //ThreadedBuildTree(activeProject); // (Re-) create tree UI
+    SyncBuildTree(activeProject);
 
     wxSplitterWindow* splitter = XRCCTRL(*this, "splitterWin", wxSplitterWindow);
     if (m_Parser->ClassBrowserOptions().treeMembers)
@@ -937,6 +938,31 @@ void ClassBrowser::ThreadedBuildTree(cbProject* activeProject)
             m_ClassBrowserSemaphore.Post();        // ...and allow BuildTree
         }
     }
+}
+
+void ClassBrowser::SyncBuildTree(cbProject* activeProject)
+{
+    if (Manager::IsAppShuttingDown() || !m_Parser)
+        return;
+
+    TRACE(wxT("ClassBrowser: SyncBuildTree started."));
+
+    // create the thread if needed
+    if (!m_ClassBrowserBuilderThread)
+    {
+        m_ClassBrowserBuilderThread = new ClassBrowserBuilderThread(this, m_ClassBrowserSemaphore);
+    }
+
+    // initialise it, this function is called from the GUI main thread.
+    m_ClassBrowserBuilderThread->Init(m_NativeParser,
+                                      m_CCTreeCtrl,
+                                      m_CCTreeCtrlBottom,
+                                      m_ActiveFilename,
+                                      activeProject,
+                                      m_Parser->ClassBrowserOptions(),
+                                      m_Parser->GetTokenTree(),
+                                      idThreadEvent);
+    m_ClassBrowserBuilderThread->BuildTree();
 }
 
 void ClassBrowser::OnTreeItemExpanding(wxTreeEvent& event)

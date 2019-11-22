@@ -164,6 +164,7 @@ private:
      *  resume the thread.
      */
     void ThreadedBuildTree(cbProject* activeProject);
+    void SyncBuildTree(cbProject* activeProject);
 
     /** expanding one node of top tree
      *  @note that the bottom tree do not actually show a tree structure, it just list the members

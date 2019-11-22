@@ -1727,12 +1727,6 @@ void CodeCompletion::OnUpdateUI(wxUpdateUIEvent& event)
 
 void CodeCompletion::OnViewClassBrowser(wxCommandEvent& event)
 {
-#if wxCHECK_VERSION(3, 0, 0)
-    (void)event;
-    cbMessageBox(_("The symbols browser is disabled in wx3.x builds.\n"
-                    "We've done this because it causes crashes."), _("Information"), wxICON_INFORMATION);
-    return;
-#else
     if (!Manager::Get()->GetConfigManager(_T("code_completion"))->ReadBool(_T("/use_symbols_browser"), true))
     {
         cbMessageBox(_("The symbols browser is disabled in code-completion options.\n"
@@ -1742,7 +1736,6 @@ void CodeCompletion::OnViewClassBrowser(wxCommandEvent& event)
     CodeBlocksDockEvent evt(event.IsChecked() ? cbEVT_SHOW_DOCK_WINDOW : cbEVT_HIDE_DOCK_WINDOW);
     evt.pWindow = (wxWindow*)m_NativeParser.GetClassBrowser();
     Manager::Get()->ProcessEvent(evt);
-#endif // wxCHECK_VERSION
 }
 
 void CodeCompletion::OnGotoFunction(cb_unused wxCommandEvent& event)

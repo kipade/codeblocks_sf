@@ -88,21 +88,31 @@ int CCTreeCtrl::OnCompareItems(const wxTreeItemId& item1, const wxTreeItemId& it
 
 int CCTreeCtrl::CBAlphabetCompare (CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 {
-    if (!lhs || !rhs)
-        return 1;
-    if (lhs->m_SpecialFolder != sfToken || rhs->m_SpecialFolder != sfToken)
+    if (!lhs)
         return -1;
-    if (!lhs->m_Token || !rhs->m_Token)
+    if(!rhs)
+        return 1;
+    if (lhs->m_SpecialFolder != sfToken)
+        return -1;
+    if( rhs->m_SpecialFolder != sfToken)
+        return 1;
+    if (!lhs->m_Token) 
+        return -1;
+    if(!rhs->m_Token)
         return 1;
     return wxStricmp(lhs->m_Token->m_Name, rhs->m_Token->m_Name);
 }
 
 int CCTreeCtrl::CBKindCompare(CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 {
-    if (!lhs || !rhs)
-        return 1;
-    if (lhs->m_SpecialFolder != sfToken || rhs->m_SpecialFolder != sfToken)
+     if (!lhs)
         return -1;
+    if(!rhs)
+        return 1;
+    if (lhs->m_SpecialFolder != sfToken)
+        return -1;
+    if( rhs->m_SpecialFolder != sfToken)
+        return 1;
     if (lhs->m_TokenKind == rhs->m_TokenKind)
         return CBAlphabetCompare(lhs, rhs);
 
@@ -111,10 +121,14 @@ int CCTreeCtrl::CBKindCompare(CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 
 int CCTreeCtrl::CBScopeCompare(CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 {
-    if (!lhs || !rhs)
-        return 1;
-    if (lhs->m_SpecialFolder != sfToken || rhs->m_SpecialFolder != sfToken)
+    if (!lhs)
         return -1;
+    if(!rhs)
+        return 1;
+     if (lhs->m_SpecialFolder != sfToken)
+        return -1;
+    if( rhs->m_SpecialFolder != sfToken)
+        return 1;
 
     if (lhs->m_Token->m_Scope == rhs->m_Token->m_Scope)
         return CBKindCompare(lhs, rhs);
@@ -124,11 +138,17 @@ int CCTreeCtrl::CBScopeCompare(CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 
 int CCTreeCtrl::CBLineCompare (CCTreeCtrlData* lhs, CCTreeCtrlData* rhs)
 {
-    if (!lhs || !rhs)
-        return 1;
-    if (lhs->m_SpecialFolder != sfToken || rhs->m_SpecialFolder != sfToken)
+     if (!lhs)
         return -1;
-    if (!lhs->m_Token || !rhs->m_Token)
+    if(!rhs)
+        return 1;
+    if (lhs->m_SpecialFolder != sfToken)
+        return -1;
+    if( rhs->m_SpecialFolder != sfToken)
+        return 1;
+    if (!lhs->m_Token) 
+        return -1;
+    if(!rhs->m_Token)
         return 1;
     if (lhs->m_Token->m_FileIdx == rhs->m_Token->m_FileIdx)
     {

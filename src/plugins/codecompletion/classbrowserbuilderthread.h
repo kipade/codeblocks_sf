@@ -20,6 +20,7 @@
  */
 class ClassBrowserBuilderThread : public wxThread
 {
+    friend class ClassBrowser;
 public:
     /** the builder threads' event sent to the GUI(class browser window) */
     enum EThreadEvent

@@ -91,7 +91,8 @@ BEGIN_EVENT_TABLE(EditorConfigurationDlg, wxScrollingDialog)
     EVT_CHECKBOX(XRCID("chkEnableMultipleSelections"), EditorConfigurationDlg::OnMultipleSelections)
     EVT_CHOICE(XRCID("lstCaretStyle"),                 EditorConfigurationDlg::OnCaretStyle)
 
-    EVT_LISTBOOK_PAGE_CHANGED(XRCID("nbMain"), EditorConfigurationDlg::OnPageChanged)
+    EVT_LISTBOOK_PAGE_CHANGING(XRCID("nbMain"),        EditorConfigurationDlg::OnPageChanging)
+    EVT_LISTBOOK_PAGE_CHANGED(XRCID("nbMain"),         EditorConfigurationDlg::OnPageChanged)
     EVT_BUTTON(XRCID("btnWSColour"),                   EditorConfigurationDlg::OnChooseColour)
 
     EVT_UPDATE_UI(XRCID("cmbFontQuality"),             EditorConfigurationDlg::OnUpdateUIFontQuality)
@@ -313,7 +314,8 @@ void EditorConfigurationDlg::AddPluginPanels()
 
     wxListbook* lb = XRCCTRL(*this, "nbMain", wxListbook);
     // get all configuration panels which are about the editor.
-    Manager::Get()->GetPluginManager()->GetConfigurationPanels(cgEditor, lb, m_PluginPanels);
+    Manager::Get()->GetPluginManager()->GetConfigurationPanels(cgEditor, lb, m_PluginPanels,
+                                                               nullptr);
 
     for (size_t i = 0; i < m_PluginPanels.GetCount(); ++i)
     {
@@ -377,6 +379,30 @@ void EditorConfigurationDlg::UpdateListbookImages()
         ;
     XRCCTRL(*this, "lblBigTitle", wxStaticText)->SetLabel(label);
     XRCCTRL(*this, "pnlTitleInfo", wxPanel)->Layout();
+}
+
+void EditorConfigurationDlg::OnPageChanging(wxListbookEvent& event)
+{
+    const int selection = event.GetSelection();
+    if (selection == wxNOT_FOUND)
+        return;
+
+    wxListbook* lb = XRCCTRL(*this, "nbMain", wxListbook);
+    wxWindow *page = lb->GetPage(selection);
+    if (page == nullptr)
+        return;
+
+    for (cbConfigurationPanel *panel : m_PluginPanels)
+    {
+        if (panel == page)
+        {
+            // FIXME (ph#):This call crashes KeyBinder, I'll fix soon.
+            if (lb->GetPageText(selection) == wxT("Keyboard shortcuts")) break;
+
+            panel->OnPageChanging();
+            break;
+        }
+    }
 }
 
 void EditorConfigurationDlg::OnPageChanged(wxListbookEvent& event)
@@ -777,8 +803,10 @@ void EditorConfigurationDlg::OnEditFilemasks(cb_unused wxCommandEvent& event)
     if (m_Theme && m_Lang != HL_NONE)
     {
         wxString masks = cbGetTextFromUser(_("Edit filemasks (use commas to separate them - case insensitive):"),
-                                        m_Theme->GetLanguageName(m_Lang),
-                                        GetStringFromArray(m_Theme->GetFileMasks(m_Lang), _T(",")));
+                                           m_Theme->GetLanguageName(m_Lang),
+                                           GetStringFromArray(m_Theme->GetFileMasks(m_Lang),
+                                                              _T(",")),
+                                           this);
         if (!masks.IsEmpty())
             m_Theme->SetFileMasks(m_Lang, masks);
     }

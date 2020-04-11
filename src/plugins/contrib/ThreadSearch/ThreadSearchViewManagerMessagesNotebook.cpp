@@ -22,6 +22,7 @@
 
 ThreadSearchViewManagerMessagesNotebook::~ThreadSearchViewManagerMessagesNotebook()
 {
+    delete m_Bitmap;
 }
 
 
@@ -35,11 +36,12 @@ void ThreadSearchViewManagerMessagesNotebook::AddViewToManager()
         const wxString imgFile = ConfigManager::GetDataFolder()
                                + wxString::Format(_T("/resources.zip#zip:/images/%dx%d/findf.png"),
                                                   uiSize, uiSize);
-        wxBitmap * bmp = new wxBitmap(cbLoadBitmapScaled(imgFile, wxBITMAP_TYPE_PNG,
+        m_Bitmap = new wxBitmap(cbLoadBitmapScaled(imgFile, wxBITMAP_TYPE_PNG,
                                                          uiScaleFactor));
 
         // Adds log to C::B Messages notebook
-        CodeBlocksLogEvent evtShow(cbEVT_ADD_LOG_WINDOW, m_pThreadSearchView, wxString(_T("Thread search")), bmp);
+        CodeBlocksLogEvent evtShow(cbEVT_ADD_LOG_WINDOW, m_pThreadSearchView,
+                                   wxString(_T("Thread search")), m_Bitmap);
         Manager::Get()->ProcessEvent(evtShow);
 
         CodeBlocksLogEvent evtSwitch(cbEVT_SWITCH_TO_LOG_WINDOW, m_pThreadSearchView);
@@ -63,17 +65,15 @@ void ThreadSearchViewManagerMessagesNotebook::RemoveViewFromManager()
         // Reparent call to avoid m_pThreadSearchView deletion
         CodeBlocksLogEvent evt(cbEVT_REMOVE_LOG_WINDOW, m_pThreadSearchView);
         Manager::Get()->ProcessEvent(evt);
-        m_pThreadSearchView->Reparent(Manager::Get()->GetAppWindow());
-        m_pThreadSearchView->Show(false);
+        m_pThreadSearchView = nullptr;
+        delete m_Bitmap;
+        m_Bitmap = nullptr;
     }
 }
 
 
 bool ThreadSearchViewManagerMessagesNotebook::ShowView(bool show)
 {
-    if ( show == IsViewShown() )
-        return false;
-
     // m_IsManaged is updated in called methods
     if ( show == true )
     {

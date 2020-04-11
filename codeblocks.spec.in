@@ -2,7 +2,7 @@
 %define req_wxgtk           2.8.0
 %define _redhat             %(if [ -f /etc/redhat-release ]; then echo 1; else echo 0; fi)
 %define _mandrake           %(if [ -f /etc/mandrake-release ]; then echo 1; else echo 0; fi)
-%define _version            17.12.svn.%{_svnrev}
+%define _version            20.03.svn.%{_svnrev}
 %define _rel                1
 %define _release            %{_rel}
 %define jobs                %(if [ -e /usr/bin/getconf ]; then echo $(( `/usr/bin/getconf _NPROCESSORS_ONLN` + 1 )); else echo 1; fi)
@@ -291,7 +291,7 @@ wxSmith-plugins and to use the wxContribItems in own programs.
 %{plugindir}/libprojectsimporter.so
 %{plugindir}/libscriptedwizard.so
 %{plugindir}/libtodo.so
-%{_datadir}/appdata/codeblocks.appdata.xml
+%{_datadir}/metainfo/codeblocks.appdata.xml
 %{_datadir}/applications/codeblocks.desktop
 %{_datadir}/icons/hicolor/48x48/mimetypes/*
 %{_datadir}/mime/packages/codeblocks.xml
@@ -426,7 +426,7 @@ wxSmith-plugins and to use the wxContribItems in own programs.
 %endif
 %{_mandir}/man1/*snippets*
 %doc README COPYING AUTHORS BUGS COMPILERS TODO NEWS ChangeLog
-%{_datadir}/appdata/codeblocks-contrib.metainfo.xml
+%{_datadir}/metainfo/codeblocks-contrib.metainfo.xml
 
 %files contrib-libs
 %defattr(-,root,root)
@@ -451,6 +451,8 @@ wxSmith-plugins and to use the wxContribItems in own programs.
 %{_includedir}/wxsmith/*
 
 %changelog
+* Thu Feb 20 2020 Teodor Petrov <tpetrov@codeblocks.org>
+- Changes for release 20.03.
 * Tue Dec 23 2014 jens <jens@codeblocks.org>
 - do not try to build Spellchecker-plugin on CentOS/RedHat < 6, because the
   hunspell packages are only available from a thirdparty repo (atomicorp),

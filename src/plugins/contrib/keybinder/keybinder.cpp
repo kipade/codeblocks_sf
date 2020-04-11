@@ -12,11 +12,6 @@
 
 // Modified Keybinder for CodeBlocks KeyBnder v2.0 2019/04/8
 
-#ifdef __GNUG__
-#pragma implementation "keybinder.h" //necessary for linux, else undefines when linking
-#endif
-
-
 // includes
 #include <wx/event.h>
 #include <wx/frame.h> // Manager::Get()->GetAppWindow()
@@ -855,9 +850,9 @@ int wxKeyBinder::MergeSubMenu(wxMenu* pMenu, int& modified)           //+v0.4.25
                 switch(c)
                 {
                     case _T('C'):
-                        if (menuItemLabel.Matches(_T("Copy"))) continue;
+                        if (menuItemLabel.Matches(_T("Copy"))) continue;  /*falls through*/
                     case _T('V'):
-                        if (menuItemLabel.Matches(_T("Paste"))) continue;
+                        if (menuItemLabel.Matches(_T("Paste"))) continue;  /*falls through*/
                     case _T('S'):
                         if (menuItemLabel.Matches(_T("Cut"))) continue;
                     default:
@@ -2067,6 +2062,12 @@ void wxKeyConfigPanel::UpdateDesc()
 
         // an invalid command is selected ? clear this field...
         m_pDescLabel->SetLabel(wxT(""));
+        if (IsUsingTreeCtrl())
+        {
+            wxTreeItemId selection = m_pCommandsTree->GetSelection();
+            if (selection and (not m_pCommandsTree->ItemHasChildren(selection)) )
+                m_pDescLabel->SetLabel(wxT("GetSelCmd() failed for this tree item.")); //(pecan 2020/02/27)
+        }
     }
 }
 
